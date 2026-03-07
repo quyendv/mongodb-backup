@@ -1,0 +1,21 @@
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Local backup data
+backup/
+*.archive.gz
+
+# Logs
+*.log
+logs/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

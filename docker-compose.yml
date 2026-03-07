@@ -1,0 +1,24 @@
+services:
+  mongodb-backup:
+    image: ghcr.io/quyendv/mongodb-backup:latest
+    container_name: mongodb-backup
+    build:
+      context: .
+      args:
+        MONGO_VERSION: "8.0"
+    env_file:
+      - .env
+    # SCHEDULE uses standard cron syntax. Examples:
+    #   "0 */4 * * *"  — every 4 hours
+    #   "0 2 * * *"    — daily at 02:00
+    #   "@every 6h"    — every 6 hours (supercronic extension)
+    # Leave empty (or omit) to run once and exit.
+    environment:
+      SCHEDULE: "0 */4 * * *"
+    volumes:
+      - backup_data:/backup
+    restart: unless-stopped
+
+volumes:
+  backup_data:
+    driver: local

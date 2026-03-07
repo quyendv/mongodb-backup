@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: default
+  name: mongodb-backup-secret
+type: Opaque
+stringData:
+  # Full MongoDB connection URI. Examples:
+  #   mongodb://user:pass@host:27017/?authSource=admin
+  #   mongodb://user:pass@host:27017/mydb?replicaSet=rs0&authSource=admin
+  MONGODB_URI: ''
+  # S3-compatible storage credentials (MinIO, AWS S3, DigitalOcean Spaces, Cloudflare R2, etc.)
+  S3_ACCESS_KEY: ''
+  S3_SECRET_KEY: ''
+  S3_ENDPOINT: ''
+  S3_BUCKET: ''
+  S3_REGION: 'us-east-1'
+  S3_PATH: 'backups/mongodb'
+  TTL_DAYS: '7'
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  namespace: default
+  name: mongodb-backup
+spec:
+  schedule: '0 */4 * * *'
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mongodb-backup
+              image: ghcr.io/quyendv/mongodb-backup:latest
+              envFrom:
+                - secretRef:
+                    name: mongodb-backup-secret
+          restartPolicy: OnFailure
