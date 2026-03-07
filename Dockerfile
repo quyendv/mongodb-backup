@@ -1,7 +1,6 @@
 # ─── Versions ──────────────────────────────────────────────
 ARG DBTOOLS_VERSION=100.14.1
 ARG SUPERCRONIC_VERSION=0.2.29
-ARG TARGETARCH=amd64
 
 # ── Stage 1: Download and install AWS CLI ────────────────────────────────────
 FROM debian:bookworm-slim AS aws-installer
@@ -45,7 +44,6 @@ RUN ARCH=$(uname -m) && \
 FROM debian:bookworm-slim
 
 ARG DBTOOLS_VERSION
-ARG TARGETARCH
 LABEL org.opencontainers.image.title="mongodb-backup"
 LABEL org.opencontainers.image.description="MongoDB backup to S3-compatible storage"
 LABEL org.opencontainers.image.source="https://github.com/quyendv/mongodb-backup"
@@ -57,22 +55,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     findutils \
     && rm -rf /var/lib/apt/lists/*
 
-# MongoDB Database Tools: no apt repo; use official .deb (amd64) or tarball (arm64) per platform.
+# MongoDB Database Tools: no apt repo; use official .deb (x86_64) or tarball (aarch64) per platform — same pattern as AWS/supercronic above.
 RUN set -eux; \
-    case "${TARGETARCH}" in \
-    amd64) \
+    ARCH=$(uname -m); \
+    case "$ARCH" in \
+    x86_64) \
         curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-debian12-x86_64-${DBTOOLS_VERSION}.deb" -o /tmp/dbtools.deb; \
         apt-get update; \
         dpkg -i /tmp/dbtools.deb || true; \
         apt-get install -f -y; \
         rm /tmp/dbtools.deb; \
         ;; \
-    arm64) \
+    aarch64) \
         curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-${DBTOOLS_VERSION}.tgz" | tar xz -C /tmp; \
         cp /tmp/mongodb-database-tools-*/bin/* /usr/local/bin/; \
         rm -rf /tmp/mongodb-database-tools-*; \
         ;; \
-    *) echo "Unsupported TARGETARCH: ${TARGETARCH}"; exit 1 ;; \
+    *) echo "Unsupported ARCH: $ARCH"; exit 1 ;; \
     esac; \
     rm -rf /var/lib/apt/lists/*
 
