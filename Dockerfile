@@ -53,18 +53,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     gzip \
     findutils \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# MongoDB Database Tools: no apt repo; use official .deb (x86_64) or tarball (aarch64) per platform — same pattern as AWS/supercronic above.
+# MongoDB Database Tools: x86_64 = official repo + apt (per https://www.mongodb.com/docs/v8.0/tutorial/install-mongodb-on-debian/); aarch64 = tarball (Debian repo only supports x86_64).
 RUN set -eux; \
     ARCH=$(uname -m); \
     case "$ARCH" in \
     x86_64) \
-        curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-debian12-x86_64-${DBTOOLS_VERSION}.deb" -o /tmp/dbtools.deb; \
+        curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg; \
+        echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" > /etc/apt/sources.list.d/mongodb-org-8.0.list; \
         apt-get update; \
-        dpkg -i /tmp/dbtools.deb || true; \
-        apt-get install -f -y; \
-        rm /tmp/dbtools.deb; \
+        apt-get install -y --no-install-recommends mongodb-org-tools; \
         ;; \
     aarch64) \
         curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-${DBTOOLS_VERSION}.tgz" | tar xz -C /tmp; \
