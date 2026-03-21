@@ -6,7 +6,7 @@ Docker image to backup MongoDB databases to S3-compatible storage (MinIO, AWS S3
 
 - `mongodump` with gzip compression — produces a single portable archive file
 - Upload to any S3-compatible storage via AWS CLI v2
-- Automatic cleanup of old backups (local + remote) based on TTL
+- Automatic cleanup of old backups (local + remote) based on TTL, with optional minimum count of newest backups always kept
 - Built-in cron scheduler via `supercronic` — no extra container needed
 - Set `SCHEDULE` env to run periodically; omit to run once and exit
 - Multi-arch: `linux/amd64` + `linux/arm64`
@@ -113,6 +113,7 @@ docker compose run --rm mongodb-backup
 | `S3_REGION`     | ✅       | `us-east-1` | Region                                                              |
 | `S3_PATH`       | ✅       | `backups`   | Path prefix inside bucket                                           |
 | `TTL_DAYS`      | ❌       | `7`         | Number of days to retain backups                                    |
+| `MIN_BACKUPS`   | ❌       | `0`         | Always keep this many **newest** backups (local + S3), even past TTL |
 | `BACKUP_DIR`    | ❌       | `/backup`   | Local backup directory inside container                             |
 | `SCHEDULE`      | ❌       | _(empty)_   | Cron expression to run periodically. If empty, runs once and exits. |
 
@@ -147,6 +148,8 @@ docker build -t mongodb-backup:local .
 ## Kubernetes
 
 See [`k8s/cronjob.yaml`](k8s/cronjob.yaml) — drop-in replacement for the old CronJob that installed tools on every run.
+
+If you reuse the same image tag after each push, use `imagePullPolicy: Always` (as in the sample) so nodes pull fresh layers; otherwise Kubernetes may keep a cached image when the default is `IfNotPresent`.
 
 ```bash
 # Apply to your cluster

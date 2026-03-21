@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  namespace: default
+  namespace: <your-namespace>
   name: mongodb-backup-secret
 type: Opaque
 stringData:
@@ -17,11 +17,12 @@ stringData:
   S3_REGION: 'us-east-1'
   S3_PATH: 'backups/mongodb'
   TTL_DAYS: '7'
+  MIN_BACKUPS: '0'
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  namespace: default
+  namespace: <your-namespace>
   name: mongodb-backup
 spec:
   schedule: '0 */4 * * *'
@@ -35,6 +36,7 @@ spec:
           containers:
             - name: mongodb-backup
               image: ghcr.io/quyendv/mongodb-backup:latest
+              imagePullPolicy: Always
               envFrom:
                 - secretRef:
                     name: mongodb-backup-secret
