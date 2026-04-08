@@ -9,6 +9,7 @@ Docker image to backup MongoDB databases to S3-compatible storage (MinIO, AWS S3
 - Automatic cleanup of old backups (local + remote) based on TTL, with optional minimum count of newest backups always kept
 - Built-in cron scheduler via `supercronic` — no extra container needed
 - Set `SCHEDULE` env to run periodically; omit to run once and exit
+- One-shot **restore** from S3 with `MODE=restore` (same image as backup)
 - Multi-arch: `linux/amd64` + `linux/arm64`
 - Install once, run forever — no need to install anything on the host server
 
@@ -30,6 +31,27 @@ docker run --rm \
   -e TTL_DAYS=7 \
   ghcr.io/quyendv/mongodb-backup:latest
 ```
+
+### Restore once (from S3)
+
+Restore expects the same object layout as backup: `mongodb_backup.archive.gz` under `S3_PATH/<timestamp>/`.
+
+```bash
+docker run --rm \
+  -e MODE=restore \
+  -e MONGODB_URI="mongodb://user:pass@192.168.1.100:27017/?authSource=admin" \
+  -e RESTORE_DROP=true \
+  -e S3_ACCESS_KEY=xxx \
+  -e S3_SECRET_KEY=xxx \
+  -e S3_ENDPOINT=https://minio.example.com \
+  -e S3_BUCKET=my-bucket \
+  -e S3_REGION=us-east-1 \
+  -e S3_PATH=backups/mongodb \
+  ghcr.io/quyendv/mongodb-backup:latest
+```
+
+- Set `RESTORE_TIMESTAMP=YYYYMMDD_HHMMSS` to pick a specific folder; omit to use the **latest** `YYYYMMDD_*` prefix under `S3_PATH/`.
+- `RESTORE_DROP=true` passes `--drop` to `mongorestore` (drops collections before restore). Omit or set `false` to merge into existing data.
 
 ### Run on a schedule (cron mode)
 
@@ -116,6 +138,15 @@ docker compose run --rm mongodb-backup
 | `MIN_BACKUPS`   | ❌       | `0`         | Always keep this many **newest** backups (local + S3), even past TTL |
 | `BACKUP_DIR`    | ❌       | `/backup`   | Local backup directory inside container                             |
 | `SCHEDULE`      | ❌       | _(empty)_   | Cron expression to run periodically. If empty, runs once and exits. |
+| `MODE`          | ❌       | `backup`    | Set to `restore` to run restore instead of backup (ignores `SCHEDULE`). |
+
+#### Restore-only variables
+
+| Variable             | Required | Default      | Description |
+| -------------------- | -------- | ------------ | ----------- |
+| `RESTORE_TIMESTAMP`  | ❌       | _(latest)_   | Backup folder under `S3_PATH` (e.g. `20260305_020000`). |
+| `RESTORE_DROP`       | ❌       | `false`      | If `true`, run `mongorestore --drop`. |
+| `RESTORE_WORK_DIR`   | ❌       | `/tmp/mongodb-restore` | Temp path for the downloaded archive. |
 
 ### MONGODB_URI examples
 
@@ -147,7 +178,10 @@ docker build -t mongodb-backup:local .
 
 ## Kubernetes
 
-See [`k8s/cronjob.yaml`](k8s/cronjob.yaml) — drop-in replacement for the old CronJob that installed tools on every run.
+- [`k8s/cronjob.yaml`](k8s/cronjob.yaml) — scheduled backup (no per-run tool install).
+- [`k8s/restore-job.yaml`](k8s/restore-job.yaml) — example Job with `MODE=restore`.
+
+See also [`scripts/demo-restore-job.yaml`](scripts/demo-restore-job.yaml) for a minimal Pod + Service + restore Job.
 
 If you reuse the same image tag after each push, use `imagePullPolicy: Always` (as in the sample) so nodes pull fresh layers; otherwise Kubernetes may keep a cached image when the default is `IfNotPresent`.
 
@@ -174,14 +208,14 @@ s3://BUCKET/S3_PATH/
 
 ---
 
-## Restore
+## Restore (manual / outside the image)
+
+The image’s restore mode downloads the same archive and runs `mongorestore` with a matching Database Tools build.
 
 ```bash
-# Download from S3
 aws s3 cp s3://BUCKET/S3_PATH/20260305_020000/mongodb_backup.archive.gz ./mongodb_backup.archive.gz \
     --endpoint-url https://your-endpoint.com
 
-# Restore to target MongoDB
 mongorestore \
     --uri="mongodb://user:pass@host:27017/?authSource=admin" \
     --gzip \
@@ -189,4 +223,4 @@ mongorestore \
     --drop
 ```
 
-> **Note:** The `--drop` flag drops existing collections before restoring. Remove it if you want to merge instead.
+`--drop` drops collections that exist in the archive before restoring; omit it to merge.

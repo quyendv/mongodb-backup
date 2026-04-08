@@ -64,7 +64,7 @@ RUN set -eux; \
         curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg; \
         echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" > /etc/apt/sources.list.d/mongodb-org-8.0.list; \
         apt-get update; \
-        apt-get install -y --no-install-recommends mongodb-org-tools; \
+        apt-get install -y --no-install-recommends mongodb-org-tools mongodb-mongosh; \
         ;; \
     aarch64) \
         curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-${DBTOOLS_VERSION}.tgz" | tar xz -C /tmp; \
@@ -81,9 +81,10 @@ ENV PATH="/aws-cli-bin/bin:$PATH"
 COPY --from=supercronic-installer /usr/local/bin/supercronic /usr/local/bin/supercronic
 
 COPY scripts/backup.sh /usr/local/bin/backup.sh
+COPY scripts/restore.sh /usr/local/bin/restore.sh
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sed -i 's/\r//' /usr/local/bin/backup.sh /usr/local/bin/entrypoint.sh \
-    && chmod +x /usr/local/bin/backup.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r//' /usr/local/bin/backup.sh /usr/local/bin/restore.sh /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/backup.sh /usr/local/bin/restore.sh /usr/local/bin/entrypoint.sh
 
 ENV MONGODB_URI=""
 ENV S3_ACCESS_KEY=""
